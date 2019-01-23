@@ -1,12 +1,12 @@
 # ![TIDE logo](graphics/tide.png?raw=true "TIDE")
 **TIDE** is a **T***erminal* **I***ntegrated* **D***evelopment* **E***nvironment*
 
->	[**NOTE**] **IN DEVELOPMENT**
+>	[**NOTE**] **on hold until further notice**
 
 This repo is still in development and is not at a functional state!
 
 ## Preview
-![Preview Image](https://i.imgur.com/cOOz4ZB.png)
+![Preview Image](lmao.jpg?raw=true)
 
 ## Features
 1. Quickly edit files with simple commands
