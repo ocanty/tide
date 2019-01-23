@@ -3,29 +3,24 @@
 Base class for all views
 
 """
-
-import tide.terminal as terminal
+import curses
+from tide.classes.Logger import logger
 
 class View:
-	def __init__(self, x, y, width, height):
-		self.x = x
-		self.y = y
-		self.width = width
-		self.height = height
+	def __init__(self, window):
+		self.window = window
+		self.inputs = []
+		self.layers = []
 
-		self.ClearRegion()
+	def render(self):
+		self.window.noutrefresh()
 
-	def ClearRegion(self):
-		for vert in range(self.y, self.height):
-			terminal.SetCursorPosition(self.x, vert)
-			terminal.Write(' ' * self.width)
-
-	def RenderBorder(self, message):
-		self.ClearRegion()
-		terminal.SetCursorPosition(self.x, self.y)
-		terminal.Write(f'┌{"─" * self.width - 2}┐')
-		for x in range(1, self.height - 2):
-			terminal.SetCursorPosition(self.x, self.y + x)
-			terminal.Write(f'│{" " * self.width - 2}│')
-		terminal.SetCursorPosition(self.x, self.y + self.height - 1)
-		terminal.Write(f'└{"─" * self.width - 2}┘')
+	def __update_size__(self, x, y, cols, lines):
+		cY, cX = self.window.getbegyx()
+		if cY != y or cX != x:
+			logger.logInformation(f'Moving {self} from `{[cX, cY]}` to `{[x, y]}`')
+			try:
+				self.window.mvwin(y, x)
+			except:
+				pass
+		self.window.resize(lines, cols)

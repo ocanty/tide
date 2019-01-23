@@ -1,113 +1,112 @@
+import curses
+from tide.classes.View import View
+from tide.classes.Logger import logger
+
 class Layout:
 	VERTICAL = 0
 	HORIZONTAL = 1
-	CENTER = 2
-	TOP_LEFT = 3
-	TOP_RIGHT = 4
-	BOTTOM_LEFT = 5
-	BOTTOM_RIGHT = 6
-	SCALE = 7
 
-	def __init__(self, x, y, width, height):
+	def __init__(self, x=0, y=0, cols=None, lines=None, type=1, split=0.5):	
+		self.views = []
+		self.type = type
+		self.splitPoint = split
+		
 		self.x = x
 		self.y = y
-		self.width = width
-		self.height = height
-		
-		self.views = []
-		self.type = Layout.HORIZONTAL
-		self.splitPoint = self.width // 2
+		self.cols = curses.COLS if not cols else cols
+		self.lines = curses.LINES if not lines else lines
 
 	def setView(self, index, view, *params):
-		newView = view(*self.getViewRect(index), *params)
-		if len(self.views) - 1 < index:
-			self.views.append(newView)
+		x, y, cols, lines = self.getSize(index)
+		logger.logInformation(f'Setting View #{index} to {view}')
+		logger.logInformation(f'Size {[x, y, cols, lines]}')
+		if issubclass(view, View):
+			win = curses.newwin(lines, cols, y, x)
+			if len(self.views) - 1 < index:
+				self.views.append(view(win, *params))
+			else:
+				self.views[index] = view(win, *params)
 		else:
-			self.views[index] = newView
-
-	def getViewRect(self, index):
-		view_x = self.x
-		view_y = self.y
-		view_width = self.width
-		view_height = self.height
-
-		if self.type == Layout.VERTICAL:
-			if self.splitPoint < 0:  # Negative value
-				if index == 0:
-					view_x = self.x
-					view_y = self.y
-					view_width = self.width
-					view_height = self.height + self.splitPoint
-				else:
-					view_x = self.x
-					view_y = self.y + (self.height + self.splitPoint)
-					view_width = self.width
-					view_height = -self.splitPoint
+			if len(self.views) - 1 < index:
+				self.views.append(view(x, y, cols, lines, *params))
 			else:
-				if index == 0:
-					view_x = self.x
-					view_y = self.y
-					view_width = self.width
-					view_height = self.splitPoint
-				else:
-					view_x = self.x
-					view_y = self.y + self.splitPoint + 1
-					view_width = self.width
-					view_height = self.height - self.splitPoint
-			pass
-		elif self.type == Layout.HORIZONTAL:
-			if self.splitPoint < 0:  # Negative value
-				if index == 0:
-					view_x = self.x
-					view_y = self.y
-					view_width = self.width + self.splitPoint
-					view_height = self.height
-				else:
-					view_x = self.x + (self.width + self.splitPoint)
-					view_y = self.y
-					view_width = -self.splitPoint
-					view_height = self.height
-			else:
-				if index == 0:
-					view_x = self.x
-					view_y = self.y
-					view_width = self.splitPoint
-					view_height = self.height
-				else:
-					view_x = self.x + self.splitPoint + 1
-					view_y = self.y
-					view_width = self.width - self.splitPoint
-					view_height = self.height
-		return view_x, view_y, view_width, view_height
+				self.views[index] = view(x, y, cols, lines, *params)
 
 	def setType(self, sType):
 		self.type = sType
-		if self.type == Layout.VERTICAL:
-			self.splitPoint = self.height // 2
-		elif self.type == Layout.HORIZONTAL:
-			self.splitPoint = self.width // 2
 
-	def increase(self):
-		if self.width - (self.splitPoint + 1) < 3:
-			return
-		self.splitPoint += 1
+	def getSize(self, n):
+		x,y,cols,lines = self.x, self.y, self.cols, self.lines
+		if self.type == Layout.HORIZONTAL:
+			"""
+				view[0] | view[1]
+			"""
+			if self.splitPoint > 0 and self.splitPoint < 1:
+				# Split is a percentage between 0 and 1
+				cols = int(self.cols * self.splitPoint)
+				if n == 1: # Move x coord for right side
+					x += cols
+			else:
+				# Split is a fixed value
+				if self.splitPoint < 0:
+					# Split is working from the right
+					if n == 0:
+						cols = self.cols + self.splitPoint
+					elif n == 1:
+						cols = -self.splitPoint
+						x = self.cols + self.splitPoint
+				else:
+					# Split is working from the left
+					if n == 0:
+						cols = self.splitPoint
+					elif n == 1:
+						cols = self.cols - self.splitPoint
+						x += self.splitPoint
+		elif self.type == Layout.VERTICAL:
+			"""
+				view[0]
+				───────
+				view[1]
+			"""
+			if self.splitPoint > 0 and self.splitPoint < 1:
+				lines = int(self.lines * self.splitPoint)
+				if n == 1:
+					y += lines
+					lines += (self.lines - (lines * 2))
+			else:
+				if self.splitPoint < 0:
+					if n == 0:
+						lines = self.lines + self.splitPoint
+					elif n == 1:
+						lines = -self.splitPoint
+						y = self.lines + self.splitPoint
+				else:
+					if n == 0:
+						lines = self.splitPoint
+					elif n == 1:
+						lines = self.lines - self.splitPoint
+						y += self.splitPoint
 
-	def decrease(self):
-		if self.splitPoint - 1 < 3:
-			return
-		self.splitPoint -= 1
+		logger.logInformation(f'Getting size for {n} in parent size `{[self.x, self.y, self.cols, self.lines]}`')
+		logger.logInformation(f'Size found as `{[x, y, cols, lines]}`')
+
+		return  int(x), int(y), int(cols), int(lines)
 	
-	def setSize(self, width, height):
-		self.width = width
-		self.height = height
-
-	def setPos(self, x, y):
-		self.x = x
-		self.y = y
-	
-	def render(self, to):
+	def __update_size__(self, *args):
+		if len(args) > 0:
+			self.x, self.y, self.cols, self.lines = args
 		for i in range(len(self.views)):
-			self.views[i].x, self.views[i].y, self.views[i].width, self.views[i].height = self.getViewRect(i)
-			to = self.views[i].render(to)
-		return to
+			if issubclass(type(self.views[i]), View):
+				x, y, cols, lines = self.getSize(i)
+			else:
+				if len(args) == 0:
+					x, y, cols, lines = self.getSize(i)
+					logger.logInformation(f'{self} Generated size `{[x, y, cols, lines]} for {self.views[i]}`')
+				else:
+					x, y, cols, lines = args
+			logger.logInformation(f'Resizing {self.views[i]} to `{[x, y, cols, lines]}`')
+			self.views[i].__update_size__(x, y, cols, lines)
 
+	def render(self):
+		for view in self.views:
+			view.render()
